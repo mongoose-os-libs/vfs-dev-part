@@ -36,8 +36,8 @@ static enum mgos_vfs_dev_err mgos_vfs_dev_part_open(struct mgos_vfs_dev *dev,
   char *dev_name = NULL;
   json_scanf(opts, strlen(opts), "{dev: %Q, offset: %u, size: %u}", &dev_name,
              &dd->offset, &dd->size);
-  if (dev_name == NULL || dd->size == 0) {
-    LOG(LL_ERROR, ("Name and size are required"));
+  if (dev_name == NULL) {
+    LOG(LL_ERROR, ("Name is required"));
     goto out;
   }
   dd->dev = mgos_vfs_dev_open(dev_name);
@@ -45,11 +45,21 @@ static enum mgos_vfs_dev_err mgos_vfs_dev_part_open(struct mgos_vfs_dev *dev,
     LOG(LL_ERROR, ("Unable to open %s", dev_name));
     goto out;
   }
+  size_t dev_size = dd->dev->ops->get_size(dd->dev);
+  if (dd->offset > dev_size || dd->offset + dd->size > dev_size) {
+    LOG(LL_ERROR,
+        ("invalid size/offset (dev size %lu)", (unsigned long) dev_size));
+    goto out;
+  }
+  if (dd->size == 0) {
+    dd->size = dev_size - dd->offset;
+  }
   dev->dev_data = dd;
   res = MGOS_VFS_DEV_ERR_NONE;
 
 out:
   if (res != 0 && dd != NULL) {
+    if (dd->dev != NULL) mgos_vfs_dev_close(dd->dev);
     free(dd);
   }
   free(dev_name);
