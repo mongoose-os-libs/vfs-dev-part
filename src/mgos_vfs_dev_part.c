@@ -59,7 +59,7 @@ static enum mgos_vfs_dev_err mgos_vfs_dev_part_open(struct mgos_vfs_dev *dev,
 
 out:
   if (res != 0 && dd != NULL) {
-    if (dd->dev != NULL) mgos_vfs_dev_close(dd->dev);
+    mgos_vfs_dev_close(dd->dev);
     free(dd);
   }
   free(dev_name);
