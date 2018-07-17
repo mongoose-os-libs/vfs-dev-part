@@ -45,7 +45,7 @@ static enum mgos_vfs_dev_err mgos_vfs_dev_part_open(struct mgos_vfs_dev *dev,
     LOG(LL_ERROR, ("Unable to open %s", dev_name));
     goto out;
   }
-  size_t dev_size = dd->dev->ops->get_size(dd->dev);
+  size_t dev_size = mgos_vfs_dev_get_size(dd->dev);
   if (dd->offset > dev_size || dd->offset + dd->size > dev_size) {
     LOG(LL_ERROR,
         ("invalid size/offset (dev size %lu)", (unsigned long) dev_size));
@@ -72,7 +72,7 @@ static enum mgos_vfs_dev_err mgos_vfs_dev_part_read(struct mgos_vfs_dev *dev,
   struct mgos_vfs_dev_part_data *dd =
       (struct mgos_vfs_dev_part_data *) dev->dev_data;
   if (len > dd->size || offset + len > dd->size) return MGOS_VFS_DEV_ERR_INVAL;
-  return dd->dev->ops->read(dd->dev, dd->offset + offset, len, dst);
+  return mgos_vfs_dev_read(dd->dev, dd->offset + offset, len, dst);
 }
 
 static enum mgos_vfs_dev_err mgos_vfs_dev_part_write(struct mgos_vfs_dev *dev,
@@ -81,7 +81,7 @@ static enum mgos_vfs_dev_err mgos_vfs_dev_part_write(struct mgos_vfs_dev *dev,
   struct mgos_vfs_dev_part_data *dd =
       (struct mgos_vfs_dev_part_data *) dev->dev_data;
   if (len > dd->size || offset + len > dd->size) return MGOS_VFS_DEV_ERR_INVAL;
-  return dd->dev->ops->write(dd->dev, dd->offset + offset, len, src);
+  return mgos_vfs_dev_write(dd->dev, dd->offset + offset, len, src);
 }
 
 static enum mgos_vfs_dev_err mgos_vfs_dev_part_erase(struct mgos_vfs_dev *dev,
@@ -90,7 +90,7 @@ static enum mgos_vfs_dev_err mgos_vfs_dev_part_erase(struct mgos_vfs_dev *dev,
   struct mgos_vfs_dev_part_data *dd =
       (struct mgos_vfs_dev_part_data *) dev->dev_data;
   if (len > dd->size || offset + len > dd->size) return MGOS_VFS_DEV_ERR_INVAL;
-  return dd->dev->ops->erase(dd->dev, dd->offset + offset, len);
+  return mgos_vfs_dev_erase(dd->dev, dd->offset + offset, len);
 }
 
 static size_t mgos_vfs_dev_part_get_size(struct mgos_vfs_dev *dev) {
