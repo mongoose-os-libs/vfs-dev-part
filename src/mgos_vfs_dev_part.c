@@ -24,28 +24,24 @@
 #include "mgos_vfs_dev.h"
 
 struct mgos_vfs_dev_part_data {
-  struct mgos_vfs_dev *dev;
+  struct mgos_vfs_dev *io_dev;
   unsigned long offset, size;
 };
 
-static enum mgos_vfs_dev_err mgos_vfs_dev_part_open(struct mgos_vfs_dev *dev,
-                                                    const char *opts) {
+enum mgos_vfs_dev_err part_dev_init(struct mgos_vfs_dev *dev,
+                                    struct mgos_vfs_dev *io_dev, size_t offset,
+                                    size_t size) {
   enum mgos_vfs_dev_err res = MGOS_VFS_DEV_ERR_INVAL;
   struct mgos_vfs_dev_part_data *dd =
       (struct mgos_vfs_dev_part_data *) calloc(1, sizeof(*dd));
-  char *dev_name = NULL;
-  json_scanf(opts, strlen(opts), "{dev: %Q, offset: %u, size: %u}", &dev_name,
-             &dd->offset, &dd->size);
-  if (dev_name == NULL) {
-    LOG(LL_ERROR, ("Name is required"));
+  if (dd == NULL) {
+    res = MGOS_VFS_DEV_ERR_NOMEM;
     goto out;
   }
-  dd->dev = mgos_vfs_dev_open(dev_name);
-  if (dd->dev == NULL) {
-    LOG(LL_ERROR, ("Unable to open %s", dev_name));
-    goto out;
-  }
-  size_t dev_size = mgos_vfs_dev_get_size(dd->dev);
+  dd->io_dev = io_dev;
+  dd->offset = offset;
+  dd->size = size;
+  size_t dev_size = mgos_vfs_dev_get_size(dd->io_dev);
   if (dd->offset > dev_size || dd->offset + dd->size > dev_size) {
     LOG(LL_ERROR,
         ("invalid size/offset (dev size %lu)", (unsigned long) dev_size));
@@ -54,14 +50,35 @@ static enum mgos_vfs_dev_err mgos_vfs_dev_part_open(struct mgos_vfs_dev *dev,
   if (dd->size == 0) {
     dd->size = dev_size - dd->offset;
   }
+  dd->io_dev->refs++;
   dev->dev_data = dd;
   res = MGOS_VFS_DEV_ERR_NONE;
+out:
+  if (res != MGOS_VFS_DEV_ERR_NONE) free(dd);
+  return res;
+}
+
+enum mgos_vfs_dev_err mgos_vfs_dev_part_open(struct mgos_vfs_dev *dev,
+                                             const char *opts) {
+  enum mgos_vfs_dev_err res = MGOS_VFS_DEV_ERR_INVAL;
+  unsigned long offset = 0, size = 0;
+  char *dev_name = NULL;
+  struct mgos_vfs_dev *io_dev = NULL;
+  json_scanf(opts, strlen(opts), "{dev: %Q, offset: %lu, size: %lu}", &dev_name,
+             &offset, &size);
+  if (dev_name == NULL) {
+    LOG(LL_ERROR, ("Name is required"));
+    goto out;
+  }
+  io_dev = mgos_vfs_dev_open(dev_name);
+  if (io_dev == NULL) {
+    LOG(LL_ERROR, ("Unable to open %s", dev_name));
+    goto out;
+  }
+  res = part_dev_init(dev, io_dev, offset, size);
 
 out:
-  if (res != 0 && dd != NULL) {
-    mgos_vfs_dev_close(dd->dev);
-    free(dd);
-  }
+  mgos_vfs_dev_close(io_dev);
   free(dev_name);
   return res;
 }
@@ -72,7 +89,7 @@ static enum mgos_vfs_dev_err mgos_vfs_dev_part_read(struct mgos_vfs_dev *dev,
   struct mgos_vfs_dev_part_data *dd =
       (struct mgos_vfs_dev_part_data *) dev->dev_data;
   if (len > dd->size || offset + len > dd->size) return MGOS_VFS_DEV_ERR_INVAL;
-  return mgos_vfs_dev_read(dd->dev, dd->offset + offset, len, dst);
+  return mgos_vfs_dev_read(dd->io_dev, dd->offset + offset, len, dst);
 }
 
 static enum mgos_vfs_dev_err mgos_vfs_dev_part_write(struct mgos_vfs_dev *dev,
@@ -81,7 +98,7 @@ static enum mgos_vfs_dev_err mgos_vfs_dev_part_write(struct mgos_vfs_dev *dev,
   struct mgos_vfs_dev_part_data *dd =
       (struct mgos_vfs_dev_part_data *) dev->dev_data;
   if (len > dd->size || offset + len > dd->size) return MGOS_VFS_DEV_ERR_INVAL;
-  return mgos_vfs_dev_write(dd->dev, dd->offset + offset, len, src);
+  return mgos_vfs_dev_write(dd->io_dev, dd->offset + offset, len, src);
 }
 
 static enum mgos_vfs_dev_err mgos_vfs_dev_part_erase(struct mgos_vfs_dev *dev,
@@ -90,7 +107,7 @@ static enum mgos_vfs_dev_err mgos_vfs_dev_part_erase(struct mgos_vfs_dev *dev,
   struct mgos_vfs_dev_part_data *dd =
       (struct mgos_vfs_dev_part_data *) dev->dev_data;
   if (len > dd->size || offset + len > dd->size) return MGOS_VFS_DEV_ERR_INVAL;
-  return mgos_vfs_dev_erase(dd->dev, dd->offset + offset, len);
+  return mgos_vfs_dev_erase(dd->io_dev, dd->offset + offset, len);
 }
 
 static size_t mgos_vfs_dev_part_get_size(struct mgos_vfs_dev *dev) {
@@ -103,14 +120,16 @@ static enum mgos_vfs_dev_err mgos_vfs_dev_part_close(struct mgos_vfs_dev *dev) {
   struct mgos_vfs_dev_part_data *dd =
       (struct mgos_vfs_dev_part_data *) dev->dev_data;
   enum mgos_vfs_dev_err res =
-      (mgos_vfs_dev_close(dd->dev) ? MGOS_VFS_DEV_ERR_NONE
-                                   : MGOS_VFS_DEV_ERR_IO);
+      (mgos_vfs_dev_close(dd->io_dev) ? MGOS_VFS_DEV_ERR_NONE
+                                      : MGOS_VFS_DEV_ERR_IO);
   free(dd);
   return res;
 }
 
 static const struct mgos_vfs_dev_ops mgos_vfs_dev_part_ops = {
+#ifndef MGOS_NO_MAIN
     .open = mgos_vfs_dev_part_open,
+#endif
     .read = mgos_vfs_dev_part_read,
     .write = mgos_vfs_dev_part_write,
     .erase = mgos_vfs_dev_part_erase,
