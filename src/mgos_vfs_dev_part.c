@@ -44,7 +44,7 @@ enum mgos_vfs_dev_err part_dev_init(struct mgos_vfs_dev *dev,
   size_t dev_size = mgos_vfs_dev_get_size(dd->io_dev);
   if (dd->offset > dev_size || dd->offset + dd->size > dev_size) {
     LOG(LL_ERROR,
-        ("invalid size/offset (dev size %lu)", (unsigned long) dev_size));
+        ("Invalid size/offset (dev size %lu)", (unsigned long) dev_size));
     goto out;
   }
   if (dd->size == 0) {
