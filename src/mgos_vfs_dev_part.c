@@ -127,9 +127,7 @@ static enum mgos_vfs_dev_err mgos_vfs_dev_part_close(struct mgos_vfs_dev *dev) {
 }
 
 static const struct mgos_vfs_dev_ops mgos_vfs_dev_part_ops = {
-#ifndef MGOS_BOOT_BUILD
     .open = mgos_vfs_dev_part_open,
-#endif
     .read = mgos_vfs_dev_part_read,
     .write = mgos_vfs_dev_part_write,
     .erase = mgos_vfs_dev_part_erase,
