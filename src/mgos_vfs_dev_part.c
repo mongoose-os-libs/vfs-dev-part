@@ -31,6 +31,7 @@ struct mgos_vfs_dev_part_data {
 enum mgos_vfs_dev_err part_dev_init(struct mgos_vfs_dev *dev,
                                     struct mgos_vfs_dev *io_dev, size_t offset,
                                     size_t size) {
+  size_t dev_size;
   enum mgos_vfs_dev_err res = MGOS_VFS_DEV_ERR_INVAL;
   struct mgos_vfs_dev_part_data *dd =
       (struct mgos_vfs_dev_part_data *) calloc(1, sizeof(*dd));
@@ -41,7 +42,7 @@ enum mgos_vfs_dev_err part_dev_init(struct mgos_vfs_dev *dev,
   dd->io_dev = io_dev;
   dd->offset = offset;
   dd->size = size;
-  size_t dev_size = mgos_vfs_dev_get_size(dd->io_dev);
+  dev_size = mgos_vfs_dev_get_size(dd->io_dev);
   if (dd->offset > dev_size || dd->offset + dd->size > dev_size) {
     LOG(LL_ERROR,
         ("Invalid size/offset (dev size %lu)", (unsigned long) dev_size));
