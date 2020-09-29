@@ -30,10 +30,6 @@ extern "C" {
 
 bool mgos_vfs_dev_part_init(void);
 
-enum mgos_vfs_dev_err part_dev_init(struct mgos_vfs_dev *dev,
-                                    struct mgos_vfs_dev *io_dev, size_t offset,
-                                    size_t size);
-
 #ifdef __cplusplus
 }
 #endif
